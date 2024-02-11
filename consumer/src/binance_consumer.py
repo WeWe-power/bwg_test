@@ -48,7 +48,12 @@ def parse_exchange_rate(ch, method, properties, body):
                 f'{message.from_coin}_{message.to_coin}_rate',
                 exchange_rate['to_coin_rate'] * float(usdt_to_usd_course)
             )
+            redis_hashmap.set(
+                f'{message.to_coin}_{message.from_coin}_rate',
+                1/(exchange_rate['to_coin_rate'] * float(usdt_to_usd_course))
+            )
             redis_hashmap.set(f'{message.from_coin}_{message.to_coin}_update_ts', timestamp_now())
+            redis_hashmap.set(f'{message.to_coin}_{message.from_coin}_update_ts', timestamp_now())
             logger.info(
                 f'updated {message.from_coin}_{message.to_coin} '
                 f'course {exchange_rate["to_coin_rate"] * float(usdt_to_usd_course)}'
@@ -58,7 +63,9 @@ def parse_exchange_rate(ch, method, properties, body):
             if to_usd_rate:
                 usd_to_rub = binance_api.get_usd_to_rub_exchange_rate()['to_coin_rate']
                 redis_hashmap.set(f'{message.from_coin}_{message.to_coin}_rate', to_usd_rate * usd_to_rub)
+                redis_hashmap.set(f'{message.to_coin}_{message.from_coin}_rate', 1/(to_usd_rate * usd_to_rub))
                 redis_hashmap.set(f'{message.from_coin}_{message.to_coin}_update_ts', timestamp_now())
+                redis_hashmap.set(f'{message.to_coin}_{message.from_coin}_update_ts', timestamp_now())
                 logger.info(f'updated {message.from_coin}_{message.to_coin} course {to_usd_rate * usd_to_rub}')
 
 
