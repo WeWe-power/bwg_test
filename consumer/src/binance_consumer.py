@@ -34,7 +34,28 @@ def parse_exchange_rate(ch, method, properties, body):
         logger.info(f'skipped update {message.from_coin}_{message.to_coin} course; recently updated')
         return None
     with binance_api:
-        if message.to_coin == 'usd':
+        if message.from_coin == 'usdt':
+            # Берем курс из бинанса / из коингико, если он там есть
+            to_usd_rate = (
+                redis_hashmap.get(f'{message.from_coin}_usd_rate', raise_if_not_found=False)
+                or HashMap('coingeko').get(f'{message.from_coin}_usd_rate', raise_if_not_found=False)
+            )
+            if not to_usd_rate:
+                to_usd_rate = 1
+            if message.to_coin == 'usd':
+                redis_hashmap.set(f'{message.from_coin}_{message.to_coin}_rate', to_usd_rate)
+                redis_hashmap.set(f'{message.to_coin}_{message.from_coin}_rate', 1/to_usd_rate)
+                redis_hashmap.set(f'{message.from_coin}_{message.to_coin}_update_ts', timestamp_now())
+                redis_hashmap.set(f'{message.to_coin}_{message.from_coin}_update_ts', timestamp_now())
+                logger.info(f'updated {message.from_coin}_{message.to_coin} course {to_usd_rate}')
+            elif message.to_coin == 'rub':
+                usd_to_rub = binance_api.get_usd_to_rub_exchange_rate()['to_coin_rate']
+                redis_hashmap.set(f'{message.from_coin}_{message.to_coin}_rate', to_usd_rate * usd_to_rub)
+                redis_hashmap.set(f'{message.to_coin}_{message.from_coin}_rate', 1/(to_usd_rate * usd_to_rub))
+                redis_hashmap.set(f'{message.from_coin}_{message.to_coin}_update_ts', timestamp_now())
+                redis_hashmap.set(f'{message.to_coin}_{message.from_coin}_update_ts', timestamp_now())
+                logger.info(f'updated {message.from_coin}_{message.to_coin} course {to_usd_rate * usd_to_rub}')
+        elif message.to_coin == 'usd':
             exchange_rate = binance_api.get_course(from_coin=message.from_coin, to_coin='usdt')
             if not exchange_rate:
                 return None
