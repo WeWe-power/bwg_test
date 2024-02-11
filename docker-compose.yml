@@ -2,7 +2,7 @@ version: '3.10'
 
 services:
 
-services#  app:
+#  app:
 #    build: ./api
 #    container_name: bwg_api
 #    volumes:
@@ -27,14 +27,14 @@ services#  app:
 #    expose:
 #      - 5432
 #
-#  redis:
-#    image: redis/redis-stack:7.2.0-v8
-#    expose:
-#      - 6379
-#    volumes:
-#      - redis_data:/data
-#    env_file:
-#      .env
+  redis:
+    image: redis/redis-stack:7.2.0-v8
+    expose:
+      - 6379
+    volumes:
+      - redis_data:/data
+    env_file:
+      .env
 
   rabbitmq:
     image: rabbitmq:3.12.12-management
@@ -60,6 +60,36 @@ services#  app:
       "
     depends_on:
       - rabbitmq
+
+  binance_consumer:
+    build: ./consumer
+    container_name: bwg_binance_consumer
+    volumes:
+      - ./consumer:/code
+    env_file:
+      - ./consumer/.env
+    command: bash -c "
+      cd src
+      && python3 binance_consumer.py
+      "
+    depends_on:
+      - rabbitmq
+      - redis
+
+  coingeko_consumer:
+    build: ./consumer
+    container_name: bwg_coingeko_consumer
+    volumes:
+      - ./consumer:/code
+    env_file:
+      - ./consumer/.env
+    command: bash -c "
+      cd src
+      && python3 coingeko_consumer.py
+      "
+    depends_on:
+      - rabbitmq
+      - redis
 
 volumes:
   pg_data:

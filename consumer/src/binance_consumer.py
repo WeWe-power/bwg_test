@@ -1,0 +1,88 @@
+import json
+import time
+
+import pika
+
+import logging
+
+from exchange_api_clients.get_api_client import get_api_client
+from rabbitmq.connection import get_rabbitmq_connection
+from rabbitmq.message import ParseCryptoCoinExchangeRateMessage
+from redis_utils.exceptions import KeyDoesNotExists
+from redis_utils.structures import HashMap
+from utils.time_utils import timestamp_now
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger('dev')
+
+RABBITMQ_QUEUE = 'binance_parser'
+RABBITMQ_CONNECTION_ATTEMPTS = 6
+RABBITMQ_CONNECTION_ATTEMPTS_INTERVAL = 10
+
+
+def parse_exchange_rate(ch, method, properties, body):
+    logger.info(f" [x] Received {body}")
+    message = ParseCryptoCoinExchangeRateMessage.from_dict(json.loads(body))
+
+    redis_hashmap = HashMap('binance')
+    binance_api = get_api_client('binance')
+    last_update_ts = redis_hashmap.get(
+        f'{message.from_coin}_{message.to_coin}_update_ts',
+        raise_if_not_found=False,
+    )
+    if last_update_ts and timestamp_now() - float(last_update_ts) < 2:
+        logger.info(f'skipped update {message.from_coin}_{message.to_coin} course; recently updated')
+        return None
+    with binance_api:
+        if message.to_coin == 'usd':
+            exchange_rate = binance_api.get_course(from_coin=message.from_coin, to_coin='usdt')
+            if not exchange_rate:
+                return None
+            try:
+                usdt_to_usd_course = HashMap('coingeko').get('usdt_usd_rate')
+                if not usdt_to_usd_course:
+                    usdt_to_usd_course = 1
+            except KeyDoesNotExists:
+                usdt_to_usd_course = 1
+            redis_hashmap.set(
+                f'{message.from_coin}_{message.to_coin}_rate',
+                exchange_rate['to_coin_rate'] * float(usdt_to_usd_course)
+            )
+            redis_hashmap.set(f'{message.from_coin}_{message.to_coin}_update_ts', timestamp_now())
+            logger.info(
+                f'updated {message.from_coin}_{message.to_coin} '
+                f'course {exchange_rate["to_coin_rate"] * float(usdt_to_usd_course)}'
+            )
+        elif message.to_coin == 'rub':
+            to_usd_rate = redis_hashmap.get(f'{message.from_coin}_usd_rate', raise_if_not_found=False)
+            if to_usd_rate:
+                usd_to_rub = binance_api.get_usd_to_rub_exchange_rate()['to_coin_rate']
+                redis_hashmap.set(f'{message.from_coin}_{message.to_coin}_rate', to_usd_rate * usd_to_rub)
+                redis_hashmap.set(f'{message.from_coin}_{message.to_coin}_update_ts', timestamp_now())
+                logger.info(f'updated {message.from_coin}_{message.to_coin} course {to_usd_rate * usd_to_rub}')
+
+
+
+def main():
+    connection = None
+    for i in range(RABBITMQ_CONNECTION_ATTEMPTS):
+        try:
+            connection = get_rabbitmq_connection()
+            channel = connection.channel()
+        except pika.exceptions.AMQPConnectionError:
+            logger.info(f'cannt connect to rabitmq, retrying in {RABBITMQ_CONNECTION_ATTEMPTS_INTERVAL} seconds')
+            time.sleep(RABBITMQ_CONNECTION_ATTEMPTS_INTERVAL)
+    if not connection:
+        raise pika.exceptions.AMQPConnectionError()
+
+    logger.info('connected to rabbitmq')
+    channel.queue_declare(queue=RABBITMQ_QUEUE)
+    channel.basic_consume(
+        queue=RABBITMQ_QUEUE,
+        auto_ack=True,
+        on_message_callback=parse_exchange_rate,
+    )
+    channel.start_consuming()
+
+if __name__ == '__main__':
+    main()

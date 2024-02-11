@@ -2,6 +2,6 @@ from dataclasses import dataclass
 
 
 @dataclass
-class ParseCryptoCoinCourseMessage:
+class ParseCryptoCoinExchangeRateMessage:
     from_coin: str
     to_coin: str

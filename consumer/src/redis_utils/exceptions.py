@@ -1,0 +1,2 @@
+class KeyDoesNotExists(Exception):
+    """"""
