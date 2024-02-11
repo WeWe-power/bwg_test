@@ -28,9 +28,11 @@ services:
       - 5432
 
   redis:
-    image: redis:7
+    image: redis/redis-stack:7.2.0-v8
     expose:
       - 6379
+    volumes:
+      - redis_data:/data
     environment:
       - REDIS_PORT=6379
       - REDIS_DATABASES=16
@@ -38,3 +40,4 @@ services:
 
 volumes:
   pg_data:
+  redis_data:

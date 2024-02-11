@@ -15,5 +15,9 @@ class Settings(BaseSettings):
         db_port=os.environ['DB_PORT'],
         db_name=os.environ['DB_NAME'],
     )
+    REDIS_HOST: str = os.environ['REDIS_HOST']
+    REDIS_PORT: str = os.environ['REDIS_PORT']
+    REDIS_DB: str = os.environ['REDIS_DB']
+
 
 settings = Settings()
