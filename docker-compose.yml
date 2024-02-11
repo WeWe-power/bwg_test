@@ -17,6 +17,7 @@ services:
       "
     depends_on:
       - db
+      - redis
 
   db:
     image: postgres:16
@@ -27,69 +28,71 @@ services:
     expose:
       - 5432
 
-#  redis:
-#    image: redis/redis-stack:7.2.0-v8
-#    expose:
-#      - 6379
-#    volumes:
-#      - redis_data:/data
-#    env_file:
-#      .env
-#
-#  rabbitmq:
-#    image: rabbitmq:3.12.12-management
-#    ports:
-#      - 15672:15672
-#    expose:
-#      - 5672
-#    volumes:
-#      - rmq_data:/var/lib/rabbitmq
-#    env_file:
-#      - .env
-#
-#  producer:
-#    build: ./producer
-#    container_name: bwg_producer
-#    volumes:
-#      - ./producer:/code
-#    env_file:
-#      - ./producer/.env
-#    command: bash -c "
-#      cd src
-#      && python3 producer.py
-#      "
-#    depends_on:
-#      - rabbitmq
-#
-#  binance_consumer:
-#    build: ./consumer
-#    container_name: bwg_binance_consumer
-#    volumes:
-#      - ./consumer:/code
-#    env_file:
-#      - ./consumer/.env
-#    command: bash -c "
-#      cd src
-#      && python3 binance_consumer.py
-#      "
-#    depends_on:
-#      - rabbitmq
-#      - redis
-#
-#  coingeko_consumer:
-#    build: ./consumer
-#    container_name: bwg_coingeko_consumer
-#    volumes:
-#      - ./consumer:/code
-#    env_file:
-#      - ./consumer/.env
-#    command: bash -c "
-#      cd src
-#      && python3 coingeko_consumer.py
-#      "
-#    depends_on:
-#      - rabbitmq
-#      - redis
+  redis:
+    image: redis/redis-stack:7.2.0-v8
+    expose:
+      - 6379
+    volumes:
+      - redis_data:/data
+    env_file:
+      .env
+
+  rabbitmq:
+    image: rabbitmq:3.12.12-management
+    ports:
+      - 15672:15672
+    expose:
+      - 5672
+    volumes:
+      - rmq_data:/var/lib/rabbitmq
+    env_file:
+      - .env
+
+  producer:
+    build: ./producer
+    container_name: bwg_producer
+    volumes:
+      - ./producer:/code
+    env_file:
+      - ./producer/.env
+    command: bash -c "
+      cd src
+      && python3 producer.py
+      "
+    depends_on:
+      - rabbitmq
+
+  binance_consumer:
+    build: ./consumer
+    volumes:
+      - ./consumer:/code
+    env_file:
+      - ./consumer/.env
+    command: bash -c "
+      cd src
+      && python3 binance_consumer.py
+      "
+    depends_on:
+      - rabbitmq
+      - redis
+    deploy:
+      mode: replicated
+      replicas: 4
+
+  coingeko_consumer:
+    build: ./consumer
+    container_name: bwg_coingeko_consumer
+    volumes:
+      - ./consumer:/code
+    env_file:
+      - ./consumer/.env
+    command: bash -c "
+      cd src
+      && python3 coingeko_consumer.py
+      "
+    depends_on:
+      - rabbitmq
+      - redis
 
 volumes:
   pg_data:

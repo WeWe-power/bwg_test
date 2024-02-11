@@ -4,7 +4,7 @@ from redis.asyncio import Redis
 from redis.exceptions import ConnectionError
 
 
-from src.settings import settings
+from settings import settings
 
 
 class RedisConnectionPool:
@@ -13,7 +13,7 @@ class RedisConnectionPool:
     instance = None
 
     def __new__(cls):
-        if not hasattr(cls, 'instance') or not getattr(cls, 'instance'):
+        if not cls.instance:
             cls.instance = super(RedisConnectionPool, cls).__new__(cls)
             cls.pool = redis.ConnectionPool(
                 host=settings.REDIS_HOST,
@@ -33,7 +33,7 @@ async def get_redis_client() -> Redis | None:
     Если redis недоступен, вернется None
     """
     try:
-        redis_client = RedisConnectionPool.get_conn()
+        redis_client = RedisConnectionPool().get_conn()
         await redis_client.ping()
         return redis_client
     except ConnectionError:

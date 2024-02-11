@@ -1,7 +1,7 @@
 from redis.exceptions import ResponseError
 
-from src.redis.connection import get_redis_client
-from src.redis.exceptions import KeyDoesNotExists
+from redis_utils.connection import get_redis_client
+from redis_utils.exceptions import KeyDoesNotExists
 
 
 class RedisStruct:
@@ -25,9 +25,10 @@ class RedisStruct:
 
 
 class HashMap(RedisStruct):
-    async def get(self, key=''):
+    async def get(self, key='', raise_if_not_found=True):
         await self.check_conn()
         try:
             return await self.conn.json().get(self.name, f'.{key}')
         except ResponseError:
-            raise KeyDoesNotExists(f'Ключа {key} не существует')
+            if raise_if_not_found:
+                raise KeyDoesNotExists(f'Ключа {key} не существует')
